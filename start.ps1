@@ -1,3 +1,4 @@
+@'
 $ErrorActionPreference = "Stop"
 
 $dataRoot   = "C:\data"
@@ -23,15 +24,16 @@ function Set-Prop([string]$key, [string]$value) {
   } else {
     $content += "$key=$value"
   }
+
   Set-Content -Path $propsPath -Value $content -Encoding ASCII
 }
 
-# If server exe missing, unpack from ZIP in mounted data folder
+# Unpack server if not present
 if (!(Test-Path $exePath)) {
   if (!(Test-Path $zipPath)) {
     Write-Host "Missing: $zipPath"
-    Write-Host "Download the official Bedrock Dedicated Server (Windows) ZIP and place it at:"
-    Write-Host "  C:\data\bedrock-server.zip  (this is your mounted /serverfiles folder in GSA)"
+    Write-Host "Place the official Bedrock Dedicated Server (Windows) ZIP at:"
+    Write-Host "  C:\data\bedrock-server.zip  (this is your mounted serverfiles folder in GSA)"
     exit 1
   }
 
@@ -39,17 +41,13 @@ if (!(Test-Path $exePath)) {
   Expand-Archive -Path $zipPath -DestinationPath $serverDir -Force
 }
 
-# Optional env-driven config
-Set-Prop "server-name"        $env:SERVER_NAME
-Set-Prop "max-players"        $env:MAX_PLAYERS
-Set-Prop "server-port"        $env:SERVER_PORT
-Set-Prop "server-portv6"      $env:SERVER_PORT_V6
-Set-Prop "gamemode"           $env:GAMEMODE
-Set-Prop "difficulty"         $env:DIFFICULTY
-Set-Prop "level-name"         $env:LEVEL_NAME
-Set-Prop "online-mode"        $env:ONLINE_MODE
-Set-Prop "allow-cheats"       $env:ALLOW_CHEATS
+# Env-driven config (optional)
+Set-Prop "server-name"   $env:SERVER_NAME
+Set-Prop "max-players"   $env:MAX_PLAYERS
+Set-Prop "server-port"   $env:SERVER_PORT
+Set-Prop "server-portv6" $env:SERVER_PORT_V6
 
 Write-Host "Starting Bedrock: $exePath"
 Set-Location $serverDir
 & $exePath
+'@ | Set-Content -Encoding UTF8 .\start.ps1
