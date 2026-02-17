@@ -1,9 +1,16 @@
-name: Build Windows Bedrock Bootstrap
+name: Build & Push Windows Bedrock Image (GHCR)
 
 on:
   push:
     branches: ["main"]
+    tags:
+      - "v*.*.*"          # e.g. v1.0.1
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to publish (e.g. 1.0.1). Leave blank to publish main-<sha> only."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -12,6 +19,7 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,16 +31,61 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build image
+      - name: Compute image tags
+        id: meta
         shell: pwsh
         run: |
           $owner = "${{ github.repository_owner }}".ToLower()
-          docker build -t "ghcr.io/$owner/bedrock-win-bootstrap:1.0.0" .
-          docker tag "ghcr.io/$owner/bedrock-win-bootstrap:1.0.0" "ghcr.io/$owner/bedrock-win-bootstrap:latest"
+          $image = "ghcr.io/$owner/bedrock-win-bootstrap"
+
+          $refType = "${{ github.ref_type }}"
+          $refName = "${{ github.ref_name }}"
+          $sha = "${{ github.sha }}".Substring(0,7)
+
+          $tags = @()
+
+          if ($refType -eq "tag") {
+            # refName like "v1.0.1" -> "1.0.1"
+            $ver = $refName
+            if ($ver.StartsWith("v")) { $ver = $ver.Substring(1) }
+
+            $tags += "$image:$ver"
+            $tags += "$image:latest"
+          }
+          elseif ("${{ github.event_name }}" -eq "workflow_dispatch" -and "${{ inputs.version }}".Trim().Length -gt 0) {
+            $ver = "${{ inputs.version }}".Trim()
+            $tags += "$image:$ver"
+            $tags += "$image:latest"
+          }
+          else {
+            # main branch push: unique tag per commit
+            $tags += "$image:main-$sha"
+          }
+
+          "image=$image" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "tags=$($tags -join ',')" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+          Write-Host "Image: $image"
+          Write-Host "Tags: $($tags -join ', ')"
+
+      - name: Build image
+        shell: pwsh
+        run: |
+          $tags = "${{ steps.meta.outputs.tags }}".Split(",")
+          $primary = $tags[0]
+          docker build -t $primary .
+
+          # Tag the rest
+          foreach ($t in $tags) {
+            if ($t -ne $primary) {
+              docker tag $primary $t
+            }
+          }
 
       - name: Push image
         shell: pwsh
         run: |
-          $owner = "${{ github.repository_owner }}".ToLower()
-          docker push "ghcr.io/$owner/bedrock-win-bootstrap:1.0.0"
-          docker push "ghcr.io/$owner/bedrock-win-bootstrap:latest"
+          $tags = "${{ steps.meta.outputs.tags }}".Split(",")
+          foreach ($t in $tags) {
+            docker push $t
+          }
