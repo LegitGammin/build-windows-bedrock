@@ -2,7 +2,7 @@ name: Build Windows Bedrock Bootstrap
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +12,6 @@ permissions:
 jobs:
   build:
     runs-on: windows-2022
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,11 +24,15 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build image
+        shell: pwsh
         run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/bedrock-win-bootstrap:1.0.0 .
-          docker tag ghcr.io/${{ github.repository_owner }}/bedrock-win-bootstrap:1.0.0 ghcr.io/${{ github.repository_owner }}/bedrock-win-bootstrap:latest
+          $owner = "${{ github.repository_owner }}".ToLower()
+          docker build -t "ghcr.io/$owner/bedrock-win-bootstrap:1.0.0" .
+          docker tag "ghcr.io/$owner/bedrock-win-bootstrap:1.0.0" "ghcr.io/$owner/bedrock-win-bootstrap:latest"
 
       - name: Push image
+        shell: pwsh
         run: |
-          docker push ghcr.io/${{ github.repository_owner }}/bedrock-win-bootstrap:1.0.0
-          docker push ghcr.io/${{ github.repository_owner }}/bedrock-win-bootstrap:latest
+          $owner = "${{ github.repository_owner }}".ToLower()
+          docker push "ghcr.io/$owner/bedrock-win-bootstrap:1.0.0"
+          docker push "ghcr.io/$owner/bedrock-win-bootstrap:latest"
