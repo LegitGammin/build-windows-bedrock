@@ -49,17 +49,16 @@ jobs:
             $ver = $refName
             if ($ver.StartsWith("v")) { $ver = $ver.Substring(1) }
 
-            $tags += "$image:$ver"
-            $tags += "$image:latest"
+            $tags += "${image}:${ver}"
+            $tags += "${image}:latest"
           }
           elseif ("${{ github.event_name }}" -eq "workflow_dispatch" -and "${{ inputs.version }}".Trim().Length -gt 0) {
             $ver = "${{ inputs.version }}".Trim()
-            $tags += "$image:$ver"
-            $tags += "$image:latest"
+            $tags += "${image}:${ver}"
+            $tags += "${image}:latest"
           }
           else {
-            # main branch push: unique tag per commit
-            $tags += "$image:main-$sha"
+            $tags += "${image}:main-$sha"
           }
 
           "image=$image" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
@@ -75,7 +74,6 @@ jobs:
           $primary = $tags[0]
           docker build -t $primary .
 
-          # Tag the rest
           foreach ($t in $tags) {
             if ($t -ne $primary) {
               docker tag $primary $t
